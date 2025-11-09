@@ -103,82 +103,158 @@ class ParserPredictivo:
         self.tabla = tabla_prediccion
         self.simbolo_inicial = simbolo_inicial
         self.epsilon = 'ε'
+        self.tokens = []
+        self.pos = 0
         
     def parsear(self, tokens):
         self.tokens = tokens + [('$', '$')]
         self.pos = 0
-        self.pila = ['$', self.simbolo_inicial]
-        self.nodos_pila = [Impresora.Nodo(self.simbolo_inicial)]
-        self.raiz = self.nodos_pila[0]
         
         try:
-            while self.pila:
-                tope = self.pila[-1]
-                token_actual = self.tokens[self.pos][0] if self.pos < len(self.tokens) else '$'
-                
-                print(f"DEBUG: Pila: {self.pila}, Token: {token_actual}")
-                
-                if tope == '$':
-                    if token_actual == '$':
-                        return True, self.raiz
-                    else:
-                        raise SyntaxError(f"Se esperaba fin de cadena")
-                
-                # Si el tope es un terminal
-                if tope not in self.tabla:
-                    if tope == token_actual:
-                        self.pila.pop()
-                        nodo_actual = self.nodos_pila.pop()
-                        
-                        nodo_hoja = Impresora.Nodo(f"{tope}:{self.tokens[self.pos][1]}")
-                        nodo_actual.hijos.append(nodo_hoja)
-                        
-                        self.pos += 1
-                    else:
-                        raise SyntaxError(f"Error: se esperaba '{tope}', se encontró '{self.tokens[self.pos][1]}'")
-                
-                # Si el tope es un no terminal
-                else:
-                    if token_actual in self.tabla[tope]:
-                        produccion = self.tabla[tope][token_actual]
-                        self.pila.pop()
-                        nodo_padre = self.nodos_pila.pop()
-                        
-                        print(f"DEBUG: Aplicando {tope} -> {produccion}")
-                        
-                        if produccion != (self.epsilon,):
-                            # CORREGIDO: Crear los nodos hijos PRIMERO
-                            hijos_nodos = []
-                            for simbolo in produccion:
-                                if simbolo != self.epsilon:
-                                    nuevo_nodo = Impresora.Nodo(simbolo)
-                                    hijos_nodos.append(nuevo_nodo)
-                            
-                            # CORREGIDO: Agregar hijos al padre ANTES de poner en pilas
-                            nodo_padre.hijos.extend(hijos_nodos)
-                            
-                            # CORREGIDO: Poner en pilas en orden inverso, pero los NODOS en orden normal
-                            for simbolo in reversed(produccion):
-                                if simbolo != self.epsilon:
-                                    self.pila.append(simbolo)
-                            
-                            # CORREGIDO: Poner los NODOS en la pila en el MISMO ORDEN que los símbolos
-                            for simbolo in reversed(produccion):
-                                if simbolo != self.epsilon:
-                                    # Encontrar el nodo correspondiente
-                                    for nodo in hijos_nodos:
-                                        if nodo.valor == simbolo:
-                                            self.nodos_pila.append(nodo)
-                                            break
-                        
-                    else:
-                        esperados = list(self.tabla[tope].keys())
-                        raise SyntaxError(f"Error en {tope}: se esperaba {esperados}, se encontró '{token_actual}'")
+            self.raiz = self._construir_arbol(self.simbolo_inicial)
             
+            # Verificar que se consumieron todos los tokens
+            if self.pos < len(self.tokens) - 1: 
+                raise SyntaxError(f"Tokens adicionales no parseados: {self.tokens[self.pos:]}")
+                
             return True, self.raiz
             
         except SyntaxError as e:
             return False, str(e)
+    
+    def _construir_arbol(self, simbolo):
+        token_actual = self.tokens[self.pos][0] if self.pos < len(self.tokens) else '$'
+        
+        # Si es terminal
+        if simbolo not in self.tabla:
+            if simbolo == token_actual:
+                # Crear nodo terminal
+                valor_nodo = f"{simbolo}:{self.tokens[self.pos][1]}"
+                nodo = Impresora.Nodo(valor_nodo)
+                
+                # ATRIBUTO SEMÁNTICO para terminales
+                nodo.traduccion = self.tokens[self.pos][1]  # El lexema
+                
+                self.pos += 1
+                return nodo
+            else:
+                raise SyntaxError(f"Error: se esperaba '{simbolo}', se encontró '{self.tokens[self.pos][1]}'")
+        
+        # Si es no terminal
+        if token_actual in self.tabla[simbolo]:
+            produccion = self.tabla[simbolo][token_actual]
+            nodo = Impresora.Nodo(simbolo)
+            
+            if produccion != (self.epsilon,):
+                hijos = []
+                for s in produccion:
+                    if s != self.epsilon:
+                        hijo = self._construir_arbol(s)
+                        hijos.append(hijo)
+                        nodo.hijos.append(hijo)
+                
+                # ACCIONES SEMÁNTICAS según la producción
+                self._aplicar_acciones_semanticas(nodo, simbolo, produccion, hijos)
+            
+            else:
+                # Producción epsilon
+                nodo.traduccion = ""
+                
+            return nodo
+        else:
+            esperados = list(self.tabla[simbolo].keys())
+            raise SyntaxError(f"Error en {simbolo}: se esperaba {esperados}, se encontró '{token_actual}'")
+    
+    def _aplicar_acciones_semanticas(self, nodo, simbolo, produccion, hijos):
+
+        if simbolo == "E":
+            # E -> T E' 
+            traduccion_t = hijos[0].traduccion
+            traduccion_eprima = hijos[1].traduccion if len(hijos) > 1 else ""
+            
+            if traduccion_eprima == "":
+                nodo.traduccion = traduccion_t
+            else:
+              
+                nodo.traduccion = traduccion_eprima.replace("@", traduccion_t, 1)
+        
+        elif simbolo == "E'":
+            if len(produccion) == 3 and produccion[0] == 'opsuma':
+                # E' -> + T E'
+                traduccion_t = hijos[1].traduccion
+                traduccion_eprima1 = hijos[2].traduccion
+                
+                if traduccion_eprima1 == "":
+                    # Solo hay una suma: suma(operando_izq, T)
+                    nodo.traduccion = f"suma(@, {traduccion_t})"
+                else:
+                    # Hay más operaciones: suma(operando_izq, E')
+
+                    parte_derecha = traduccion_eprima1.replace("@", traduccion_t, 1)
+                    nodo.traduccion = f"suma(@, {parte_derecha})"
+                
+            elif len(produccion) == 3 and produccion[0] == 'opresta':
+                # E' -> - T E'
+                traduccion_t = hijos[1].traduccion
+                traduccion_eprima1 = hijos[2].traduccion
+                
+                if traduccion_eprima1 == "":
+                    # Solo hay una resta: resta(operando_izq, T)
+                    nodo.traduccion = f"resta(@, {traduccion_t})"
+                else:
+
+                    parte_derecha = traduccion_eprima1.replace("@", traduccion_t, 1)
+                    nodo.traduccion = f"resta(@, {parte_derecha})"
+            else:
+                # E' -> ε
+                nodo.traduccion = ""
+        
+        elif simbolo == "T":
+            # T -> F T' 
+            traduccion_f = hijos[0].traduccion
+            traduccion_tprima = hijos[1].traduccion if len(hijos) > 1 else ""
+            
+            if traduccion_tprima == "":
+                nodo.traduccion = traduccion_f
+            else:
+                # T' ya trae la operación completa, reemplazamos el marcador
+                nodo.traduccion = traduccion_tprima.replace("@", traduccion_f, 1)
+        
+        elif simbolo == "T'":
+            if len(produccion) == 3 and produccion[0] == 'opmult':
+                # T' -> * F T'
+                traduccion_f = hijos[1].traduccion
+                traduccion_tprima1 = hijos[2].traduccion
+                
+                if traduccion_tprima1 == "":
+                    nodo.traduccion = f"mul(@, {traduccion_f})"
+                else:
+                    parte_derecha = traduccion_tprima1.replace("@", traduccion_f, 1)
+                    nodo.traduccion = f"mul(@, {parte_derecha})"
+                    
+            elif len(produccion) == 3 and produccion[0] == 'opdiv':
+                # T' -> / F T'
+                traduccion_f = hijos[1].traduccion
+                traduccion_tprima1 = hijos[2].traduccion
+                
+                if traduccion_tprima1 == "":
+                    nodo.traduccion = f"div(@, {traduccion_f})"
+                else:
+                    parte_derecha = traduccion_tprima1.replace("@", traduccion_f, 1)
+                    nodo.traduccion = f"div(@, {parte_derecha})"
+            else:
+                # T' -> ε
+                nodo.traduccion = ""
+        
+        elif simbolo == "F":
+            if produccion[0] == '(':
+                # F -> ( E )
+                nodo.traduccion = f"({hijos[1].traduccion})"
+            else:
+                # F -> entero | decimal
+                nodo.traduccion = hijos[0].traduccion
+        
+
         
 def construir_tabla_prediccion(prediccion):
     tabla = {}
@@ -223,16 +299,21 @@ def main():
     parser = ParserPredictivo(tabla_prediccion, inicial)
     
     tokens_lexicos = lexer(cadena_prueba)
-    
-    print("\n--- ANÁLISIS SINTACTICO ---")
+
+    print("\n--- ANALISIS SINTACTICO ---")
     exito, resultado = parser.parsear(tokens_lexicos)
+    print(resultado)
     
     if exito:
-        print("Analisis sintactico exitoso")
-
+        print("✓ Analisis sintactico EXITOSO")
+        print("\n--- ARBOL DE ANALISIS ---")
         Impresora.imprimir_arbol(resultado)
+        
+        if hasattr(resultado, 'traduccion'):
+            print(f"\n--- TRADUCCION ---")
+            print(f"Resultado: {resultado.traduccion}")
     else:
-        print("Error sintactico:", resultado)
+        print("✗ Error sintáctico:", resultado)
         
     print("\n--- TOKENS LEXICOS ---")
     for tok, lexema in tokens_lexicos:

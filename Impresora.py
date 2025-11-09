@@ -2,14 +2,14 @@ class Nodo:
     def __init__(self, valor, hijos=None):
         self.valor = valor
         self.hijos = hijos if hijos is not None else []
+        self.traduccion = None  # Atributo semántico para traducción
 
 
 def mostrar_arbol(nodo):
-    """Muestra el arbol con el nodo raiz"""
     if nodo is None:
         return [""], 0, 0 
 
-    caja = cuadrado(str(nodo.valor))
+    caja = cuadrado_con_semantica(nodo)
     ancho = len(caja[0])
 
     if not nodo.hijos:  # nodo sin hijos
@@ -81,8 +81,27 @@ def imprimir_arbol(nodo):
 
 
 def cuadrado(texto):
-    arriba = "*" + "-" * len(texto) + "*"
-    medio = "|" + texto + "|"
+    """Versión más compacta para nodos"""
+    # Limitar el texto a un máximo de 15 caracteres
+    if len(texto) > 15:
+        texto = texto[:12] + "..."
+    
+    ancho = len(texto) + 2
+    arriba = "*-" + "-" * len(texto) + "-*"
+    medio = "| " + texto + " |"
     return [arriba, medio, arriba]
 
-
+def cuadrado_con_semantica(nodo):
+    """Versión compacta que muestra valor y traducción"""
+    texto_principal = nodo.valor.split(':')[0]  # Solo el tipo, no el lexema
+    
+    # Agregar traducción si existe y es corta
+    if hasattr(nodo, 'traduccion') and nodo.traduccion is not None:
+        trad = nodo.traduccion
+        if len(trad) > 10:
+            trad = trad[:8] + ".."
+        texto = f"{texto_principal}→{trad}"
+    else:
+        texto = texto_principal
+    
+    return cuadrado(texto)
