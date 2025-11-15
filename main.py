@@ -176,7 +176,7 @@ class ParserPredictivo:
                 nodo.traduccion = traduccion_t
             else:
               
-                nodo.traduccion = traduccion_eprima.replace("@", traduccion_t, 1)
+                nodo.traduccion = traduccion_eprima.replace("_", traduccion_t, 1)
         
         elif simbolo == "E'":
             if len(produccion) == 3 and produccion[0] == 'opsuma':
@@ -186,12 +186,12 @@ class ParserPredictivo:
                 
                 if traduccion_eprima1 == "":
                     # Solo hay una suma: suma(operando_izq, T)
-                    nodo.traduccion = f"suma(@, {traduccion_t})"
+                    nodo.traduccion = f"suma(_, {traduccion_t})"
                 else:
                     # Hay más operaciones: suma(operando_izq, E')
 
-                    parte_derecha = traduccion_eprima1.replace("@", traduccion_t, 1)
-                    nodo.traduccion = f"suma(@, {parte_derecha})"
+                    parte_derecha = traduccion_eprima1.replace("_", traduccion_t, 1)
+                    nodo.traduccion = f"suma(_, {parte_derecha})"
                 
             elif len(produccion) == 3 and produccion[0] == 'opresta':
                 # E' -> - T E'
@@ -200,11 +200,11 @@ class ParserPredictivo:
                 
                 if traduccion_eprima1 == "":
                     # Solo hay una resta: resta(operando_izq, T)
-                    nodo.traduccion = f"resta(@, {traduccion_t})"
+                    nodo.traduccion = f"resta(_, {traduccion_t})"
                 else:
 
-                    parte_derecha = traduccion_eprima1.replace("@", traduccion_t, 1)
-                    nodo.traduccion = f"resta(@, {parte_derecha})"
+                    parte_derecha = traduccion_eprima1.replace("_", traduccion_t, 1)
+                    nodo.traduccion = f"resta(_, {parte_derecha})"
             else:
                 # E' -> ε
                 nodo.traduccion = ""
@@ -218,7 +218,7 @@ class ParserPredictivo:
                 nodo.traduccion = traduccion_f
             else:
                 # T' ya trae la operación completa, reemplazamos el marcador
-                nodo.traduccion = traduccion_tprima.replace("@", traduccion_f, 1)
+                nodo.traduccion = traduccion_tprima.replace("_", traduccion_f, 1)
         
         elif simbolo == "T'":
             if len(produccion) == 3 and produccion[0] == 'opmult':
@@ -227,10 +227,10 @@ class ParserPredictivo:
                 traduccion_tprima1 = hijos[2].traduccion
                 
                 if traduccion_tprima1 == "":
-                    nodo.traduccion = f"mul(@, {traduccion_f})"
+                    nodo.traduccion = f"mul(_, {traduccion_f})"
                 else:
-                    parte_derecha = traduccion_tprima1.replace("@", traduccion_f, 1)
-                    nodo.traduccion = f"mul(@, {parte_derecha})"
+                    parte_derecha = traduccion_tprima1.replace("_", traduccion_f, 1)
+                    nodo.traduccion = f"mul(_, {parte_derecha})"
                     
             elif len(produccion) == 3 and produccion[0] == 'opdiv':
                 # T' -> / F T'
@@ -238,10 +238,10 @@ class ParserPredictivo:
                 traduccion_tprima1 = hijos[2].traduccion
                 
                 if traduccion_tprima1 == "":
-                    nodo.traduccion = f"div(@, {traduccion_f})"
+                    nodo.traduccion = f"div(_, {traduccion_f})"
                 else:
-                    parte_derecha = traduccion_tprima1.replace("@", traduccion_f, 1)
-                    nodo.traduccion = f"div(@, {parte_derecha})"
+                    parte_derecha = traduccion_tprima1.replace("_", traduccion_f, 1)
+                    nodo.traduccion = f"div(_, {parte_derecha})"
             else:
                 # T' -> ε
                 nodo.traduccion = ""
@@ -255,7 +255,7 @@ class ParserPredictivo:
                 nodo.traduccion = hijos[0].traduccion
         
 
-        
+
 def construir_tabla_prediccion(prediccion):
     tabla = {}
     
@@ -275,6 +275,16 @@ def construir_tabla_prediccion(prediccion):
             tabla[nt][token_limpio] = prod_tuple
     
     return tabla
+
+def tabla_simbolos(tokens,lexemas):
+    tabla = {}
+    for tok, lex in zip(tokens, lexemas):
+        tabla[lex] = tok
+    print("--- TABLA DE SIMBOLOS ---")
+    i = 0
+    for lex in tabla:
+        i+=1
+        print(f"[{i}]. {lex}: {tabla[lex]}")
 def main():
     
     if len(sys.argv) != 3:
@@ -318,7 +328,7 @@ def main():
     print("\n--- TOKENS LEXICOS ---")
     for tok, lexema in tokens_lexicos:
         print(f"{tok}: '{lexema}'")
-    """
+    tabla_simbolos(*zip(*tokens_lexicos))
     print("\n--- PRIMEROS ---")
     for nt in primeros:
         print(f"PRIMEROS({nt}) = {primeros[nt]}")
@@ -332,7 +342,7 @@ def main():
     for nt in tabla_prediccion:
         for token, produccion in tabla_prediccion[nt].items():
             print(f"M[{nt}, {token}] = {produccion}")
-    """
+    
 if __name__ == "__main__":
     main()
     

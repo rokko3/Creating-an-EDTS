@@ -58,3 +58,14 @@ python .\main.py .\grammar.txt 6*3
 python .\main.py .\grammar.txt 6-3+3
 ```
 ![alt text](image-1.png)
+```bash
+python .\main.py .\grammar.txt 8*5*3
+```
+# Arbol decorado
+![alt text](image-2.png)
+# Tokens lexicos y tabla de simbolos
+![alt text](image-3.png)
+# Conjuntos de primeros, siguientes y tabla de prediccion
+![alt text](image-4.png)
+![alt text](image-5.png)
+![alt text](image-6.png)
